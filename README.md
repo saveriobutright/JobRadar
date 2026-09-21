@@ -5,6 +5,7 @@ An extensible job aggregation backend for data engineering and AI opportunities.
 ![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?logo=springboot&logoColor=white)
 ![Maven](https://img.shields.io/badge/Maven-Wrapper-C71A36?logo=apachemaven&logoColor=white)
+[![CI](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml/badge.svg)](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > JobRadar is under active development. The current version provides a tested end-to-end pipeline from an external job source to a local REST API.
@@ -162,16 +163,17 @@ Please use the public API responsibly and review the provider's terms before ope
 
 ## Roadmap
 
-- [x] Public Spring Boot REST API
+- [x] Spring Boot REST API
 - [x] Arbeitnow integration
 - [x] Source-neutral job model
 - [x] Offline HTTP and application tests
+- [x] Continuous integration with GitHub Actions
 - [ ] Persistent job storage and deduplication
 - [ ] Scheduled ingestion pipeline
 - [ ] Search and filtering
 - [ ] Relevance scoring for data engineering and AI roles
 - [ ] Web dashboard
-- [ ] Continuous integration and container support
+- [ ] Docker support
 
 ## License
 
