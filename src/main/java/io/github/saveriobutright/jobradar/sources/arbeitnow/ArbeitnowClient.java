@@ -1,6 +1,7 @@
 package io.github.saveriobutright.jobradar.sources.arbeitnow;
 
 import io.github.saveriobutright.jobradar.jobs.JobPosting;
+import io.github.saveriobutright.jobradar.sources.JobSource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -9,7 +10,7 @@ import java.util.List;
 import java.util.Objects;
 
 @Component
-public final class ArbeitnowClient {
+public final class ArbeitnowClient implements JobSource {
 
     private static final String BASE_URL = "https://www.arbeitnow.com";
 
@@ -26,6 +27,7 @@ public final class ArbeitnowClient {
         this.mapper = mapper;
     }
 
+    @Override
     public List<JobPosting> fetchPage(int pageNumber) {
         if (pageNumber < 1) {
             throw new IllegalArgumentException(
