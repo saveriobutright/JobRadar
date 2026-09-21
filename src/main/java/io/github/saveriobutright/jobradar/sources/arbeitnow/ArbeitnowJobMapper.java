@@ -1,11 +1,13 @@
 package io.github.saveriobutright.jobradar.sources.arbeitnow;
 
 import io.github.saveriobutright.jobradar.jobs.JobPosting;
+import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.time.Instant;
 import java.util.Objects;
 
+@Component
 public final class ArbeitnowJobMapper {
 
     public JobPosting map(ArbeitnowJob job) {
