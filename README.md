@@ -353,3 +353,11 @@ Please use the public API responsibly and review the provider's terms before ope
 ## License
 
 JobRadar is available under the [MIT License](LICENSE).
+
+## Author
+
+**Saverio Polito**
+
+- [GitHub](https://github.com/saveriobutright)
+- [LinkedIn](https://www.linkedin.com/in/saverio-polito-a407a53ba)
+
