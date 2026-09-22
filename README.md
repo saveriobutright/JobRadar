@@ -24,6 +24,7 @@ An extensible job aggregation backend for data engineering and AI opportunities.
 - Manages schema changes through versioned Flyway migrations.
 - Provides a reproducible PostgreSQL environment with Docker Compose.
 - Exposes manual ingestion and persisted job search through Spring MVC REST endpoints.
+- Supports opt-in scheduled ingestion with configurable page and delays.
 - Filters stored jobs by title or company text, location, and remote status.
 - Returns deterministic one-based pagination with total result metadata.
 - Produces standard Problem Detail responses for invalid requests.
@@ -39,7 +40,9 @@ flowchart LR
     D --> E[JobSearchService]
 
     F["POST /api/ingestions/jobs"] --> G[JobIngestionController]
+    N[Schedule configuration] --> O[JobIngestionScheduler]
     G --> H[JobIngestionService]
+    O --> H
     H --> E
     H --> I[JobPostingStore]
 
@@ -52,7 +55,9 @@ flowchart LR
 
 Provider-specific DTOs remain inside their integration package. The rest of the application works with the normalized `JobPosting` model and the common `JobSource` contract.
 
-`JobIngestionService` coordinates provider retrieval and transactional persistence. `StoredJobSearchService` performs consistent read-only searches over PostgreSQL, while `JobPostingStore` owns the database-specific SQL. Flyway keeps the schema reproducible and versioned.
+Manual API requests and the opt-in `JobIngestionScheduler` both delegate to `JobIngestionService`, keeping provider retrieval and transactional persistence in one workflow. Fixed-delay scheduling prevents overlapping runs within one application instance.
+
+`StoredJobSearchService` performs consistent read-only searches over PostgreSQL, while `JobPostingStore` owns the database-specific SQL. Flyway keeps the schema reproducible and versioned.
 
 ## Requirements
 
@@ -237,6 +242,39 @@ Example response:
 
 Repeated ingestion of the same provider page does not create duplicates. Existing records retain their original `first_seen_at` value and receive an updated `last_seen_at` value.
 
+## Scheduled Ingestion
+
+Automatic ingestion is disabled by default. This prevents a freshly cloned application from sending unexpected requests to the public provider API.
+
+The scheduler uses the same transactional ingestion service as the manual endpoint. It waits for each run to finish before starting the fixed-delay timer, preventing overlapping executions within one application instance.
+
+| Property                                    | Environment variable                        | Default | Description                                       |
+|---------------------------------------------|---------------------------------------------|---------|---------------------------------------------------|
+| `jobradar.ingestion.schedule.enabled`       | `JOBRADAR_INGESTION_SCHEDULE_ENABLED`       | `false` | Enables automatic ingestion                       |
+| `jobradar.ingestion.schedule.page`          | `JOBRADAR_INGESTION_SCHEDULE_PAGE`          | `1`     | Provider page ingested on each run                |
+| `jobradar.ingestion.schedule.fixed-delay`   | `JOBRADAR_INGESTION_SCHEDULE_FIXED_DELAY`   | `PT1H`  | Delay measured after the previous run completes   |
+| `jobradar.ingestion.schedule.initial-delay` | `JOBRADAR_INGESTION_SCHEDULE_INITIAL_DELAY` | `PT30S` | Delay before the first run after application boot |
+
+Durations use the ISO 8601 format. For example, `PT30S` means 30 seconds and `PT1H` means one hour.
+
+Enable the scheduler on Windows PowerShell:
+
+```powershell
+$env:JOBRADAR_INGESTION_SCHEDULE_ENABLED='true'
+.\mvnw.cmd spring-boot:run
+```
+
+Enable it on macOS or Linux:
+
+```bash
+JOBRADAR_INGESTION_SCHEDULE_ENABLED=true \
+    ./mvnw spring-boot:run
+```
+
+Each successful run logs the configured page and the number of processed jobs. Existing listings are updated through the same atomic upsert used by manual ingestion.
+
+Each application instance owns its scheduler. Deployments with multiple replicas should coordinate ingestion externally or add distributed locking to ensure that only one replica contacts the provider.
+
 ## Persistence Design
 
 PostgreSQL identifies a listing through the combination of:
@@ -278,6 +316,7 @@ The test suite covers:
 - mocked HTTP communication;
 - aggregation across multiple sources;
 - ingestion workflow orchestration;
+- scheduled ingestion delegation, conditional activation, and configuration validation;
 - PostgreSQL upsert and deduplication;
 - transactional rollback;
 - persisted filtering, ordering, pagination, and row mapping;
@@ -301,6 +340,10 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
     │   │   ├── jobs
     │   │   │   ├── persistence
     │   │   │   │   └── JobPostingStore.java
+    │   │   │   ├── scheduling
+    │   │   │   │   ├── JobIngestionScheduleProperties.java
+    │   │   │   │   ├── JobIngestionScheduler.java
+    │   │   │   │   └── JobSchedulingConfiguration.java
     │   │   │   ├── InvalidSearchCriteriaException.java
     │   │   │   ├── JobController.java
     │   │   │   ├── JobIngestionController.java
@@ -320,8 +363,10 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
     │   │   │   │   └── ArbeitnowPage.java
     │   │   │   └── JobSource.java
     │   │   └── JobRadarApplication.java
-    │   └── resources/db/migration
-    │       └── V1__create_job_postings.sql
+    │   └── resources
+    │       ├── application.properties
+    │       └── db/migration
+    │           └── V1__create_job_postings.sql
     └── test
         └── java/io/github/saveriobutright/jobradar
             └── TestcontainersConfiguration.java
@@ -344,7 +389,7 @@ Please use the public API responsibly and review the provider's terms before ope
 - [x] Manual ingestion endpoint
 - [x] PostgreSQL integration tests with Testcontainers
 - [x] Docker Compose development environment
-- [ ] Scheduled ingestion pipeline
+- [x] Configurable scheduled ingestion pipeline
 - [x] Persistent search, filtering, and pagination
 - [ ] Relevance scoring for data engineering and AI roles
 - [ ] Web dashboard
@@ -353,3 +398,10 @@ Please use the public API responsibly and review the provider's terms before ope
 ## License
 
 JobRadar is available under the [MIT License](LICENSE).
+
+## Author
+
+**Saverio Polito**
+
+- [GitHub](https://github.com/saveriobutright)
+- [LinkedIn](https://www.linkedin.com/in/saverio-polito-a407a53ba)
