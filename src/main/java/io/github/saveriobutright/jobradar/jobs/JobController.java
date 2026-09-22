@@ -5,23 +5,39 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/jobs")
 public final class JobController {
 
-    private final JobSearchService jobSearchService;
+    private final StoredJobSearchService storedJobSearchService;
 
-    public JobController(JobSearchService jobSearchService) {
-        this.jobSearchService = jobSearchService;
+    public JobController(
+            StoredJobSearchService storedJobSearchService
+    ) {
+        this.storedJobSearchService = storedJobSearchService;
     }
 
     @GetMapping
-    public List<JobPosting> getJobs(
+    public JobSearchResult searchJobs(
             @RequestParam(name = "page", defaultValue = "1")
-            int page
+            int page,
+            @RequestParam(name = "size", defaultValue = "20")
+            int size,
+            @RequestParam(name = "query", required = false)
+            String query,
+            @RequestParam(name = "location", required = false)
+            String location,
+            @RequestParam(name = "remote", required = false)
+            Boolean remote
     ) {
-        return jobSearchService.findJobs(page);
+        JobSearchCriteria criteria = new JobSearchCriteria(
+                page,
+                size,
+                query,
+                location,
+                remote
+        );
+
+        return storedJobSearchService.search(criteria);
     }
 }

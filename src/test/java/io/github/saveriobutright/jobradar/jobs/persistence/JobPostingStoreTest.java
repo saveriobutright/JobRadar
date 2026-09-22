@@ -2,6 +2,8 @@ package io.github.saveriobutright.jobradar.jobs.persistence;
 
 import io.github.saveriobutright.jobradar.TestcontainersConfiguration;
 import io.github.saveriobutright.jobradar.jobs.JobPosting;
+import io.github.saveriobutright.jobradar.jobs.JobSearchCriteria;
+import io.github.saveriobutright.jobradar.jobs.StoredJobPosting;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -132,5 +134,101 @@ class JobPostingStoreTest {
                 .single();
 
         assertThat(count).isZero();
+    }
+
+    @Test
+    void filtersOrdersAndPaginatesStoredJobs() {
+        JobPosting newestMatch = new JobPosting(
+                "Arbeitnow",
+                "data-newest",
+                "Data Engineer",
+                "Example One",
+                "Berlin",
+                true,
+                URI.create("https://example.com/jobs/data-newest"),
+                Instant.parse("2026-09-22T10:00:00Z")
+        );
+
+        JobPosting olderMatch = new JobPosting(
+                "Arbeitnow",
+                "data-older",
+                "Senior Data Engineer",
+                "Example Two",
+                "Berlin, Germany",
+                true,
+                URI.create("https://example.com/jobs/data-older"),
+                Instant.parse("2026-09-21T10:00:00Z")
+        );
+
+        JobPosting excludedByRemoteFilter = new JobPosting(
+                "Arbeitnow",
+                "data-onsite",
+                "Principal Data Engineer",
+                "Example Three",
+                "Berlin",
+                false,
+                URI.create("https://example.com/jobs/data-onsite"),
+                Instant.parse("2026-09-23T10:00:00Z")
+        );
+
+        assertThat(store.upsertAll(List.of(
+                newestMatch,
+                olderMatch,
+                excludedByRemoteFilter
+        ))).isEqualTo(3);
+
+        JobSearchCriteria criteria = new JobSearchCriteria(
+                2,
+                1,
+                " DATA ",
+                "ber",
+                true
+        );
+
+        List<StoredJobPosting> jobs = store.find(criteria);
+        long total = store.count(criteria);
+
+        assertThat(total).isEqualTo(2);
+
+        assertThat(jobs)
+                .singleElement()
+                .satisfies(storedJob -> {
+                    assertThat(storedJob.id()).isPositive();
+                    assertThat(storedJob.sourceId())
+                            .isEqualTo("data-older");
+                    assertThat(storedJob.title())
+                            .isEqualTo("Senior Data Engineer");
+                    assertThat(storedJob.location())
+                            .isEqualTo("Berlin, Germany");
+                    assertThat(storedJob.remote()).isTrue();
+                    assertThat(storedJob.postedAt())
+                            .isEqualTo(
+                                    Instant.parse(
+                                            "2026-09-21T10:00:00Z"
+                                    )
+                            );
+                    assertThat(storedJob.firstSeenAt())
+                            .isNotNull();
+                    assertThat(storedJob.lastSeenAt())
+                            .isNotNull();
+                });
+
+        JobSearchCriteria allCriteria = new JobSearchCriteria(
+                1,
+                10,
+                null,
+                null,
+                null
+        );
+
+        assertThat(store.count(allCriteria)).isEqualTo(3);
+
+        assertThat(store.find(allCriteria))
+                .extracting(StoredJobPosting::sourceId)
+                .containsExactly(
+                        "data-onsite",
+                        "data-newest",
+                        "data-older"
+                );
     }
 }

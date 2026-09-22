@@ -23,7 +23,10 @@ An extensible job aggregation backend for data engineering and AI opportunities.
 - Tracks when each listing was first and most recently observed.
 - Manages schema changes through versioned Flyway migrations.
 - Provides a reproducible PostgreSQL environment with Docker Compose.
-- Exposes live listings and manual ingestion through Spring MVC REST endpoints.
+- Exposes manual ingestion and persisted job search through Spring MVC REST endpoints.
+- Filters stored jobs by title or company text, location, and remote status.
+- Returns deterministic one-based pagination with total result metadata.
+- Produces standard Problem Detail responses for invalid requests.
 - Uses Testcontainers to verify persistence against a real PostgreSQL instance.
 
 ## Architecture
@@ -35,19 +38,21 @@ flowchart LR
     C --> D[JobPosting]
     D --> E[JobSearchService]
 
-    E --> F[JobController]
-    F --> G["GET /api/jobs"]
+    F["POST /api/ingestions/jobs"] --> G[JobIngestionController]
+    G --> H[JobIngestionService]
+    H --> E
+    H --> I[JobPostingStore]
 
-    H["POST /api/ingestions/jobs"] --> I[JobIngestionController]
-    I --> J[JobIngestionService]
-    J --> E
-    J --> K[JobPostingStore]
-    K --> L[(PostgreSQL)]
+    J["GET /api/jobs"] --> K[JobController]
+    K --> L[StoredJobSearchService]
+    L --> I
+
+    I --> M[(PostgreSQL)]
 ```
 
 Provider-specific DTOs remain inside their integration package. The rest of the application works with the normalized `JobPosting` model and the common `JobSource` contract.
 
-`JobIngestionService` coordinates retrieval and persistence, while `JobPostingStore` owns the PostgreSQL-specific upsert. Flyway keeps the database schema reproducible and versioned.
+`JobIngestionService` coordinates provider retrieval and transactional persistence. `StoredJobSearchService` performs consistent read-only searches over PostgreSQL, while `JobPostingStore` owns the database-specific SQL. Flyway keeps the schema reproducible and versioned.
 
 ## Requirements
 
@@ -115,50 +120,83 @@ docker compose stop
 
 ## API
 
-### Get live jobs
+### Search stored jobs
 
 ```http
 GET /api/jobs
 ```
 
-The optional `page` parameter selects the provider page:
+This endpoint searches jobs already persisted in PostgreSQL.
+
+Supported query parameters:
+
+| Parameter  | Default | Description                                             |
+|------------|--------:|---------------------------------------------------------|
+| `page`     |     `1` | One-based page number                                   |
+| `size`     |    `20` | Results per page, from 1 to 100                         |
+| `query`    |       — | Case-insensitive text contained in the title or company |
+| `location` |       — | Case-insensitive text contained in the location         |
+| `remote`   |       — | `true` for remote jobs or `false` for onsite jobs       |
+
+Example:
 
 ```http
-GET /api/jobs?page=2
+GET /api/jobs?page=1&size=5&query=data&location=berlin&remote=true
 ```
-
-If `page` is omitted, JobRadar requests page `1`.
 
 Example with PowerShell:
 
 ```powershell
-Invoke-RestMethod -Uri 'http://localhost:8080/api/jobs?page=1'
+Invoke-RestMethod `
+    -Uri 'http://localhost:8080/api/jobs?page=1&size=5&query=data'
 ```
 
 Example with curl:
 
 ```bash
-curl "http://localhost:8080/api/jobs?page=1"
+curl "http://localhost:8080/api/jobs?page=1&size=5&query=data"
 ```
 
 Example response:
 
 ```json
-[
-  {
-    "source": "Arbeitnow",
-    "sourceId": "data-engineer-example",
-    "title": "Data Engineer",
-    "company": "Example Company",
-    "location": "Berlin",
-    "remote": true,
-    "sourceUrl": "https://www.arbeitnow.com/jobs/data-engineer-example",
-    "postedAt": "2026-09-20T08:00:00Z"
-  }
-]
+{
+  "items": [
+    {
+      "id": 42,
+      "source": "Arbeitnow",
+      "sourceId": "data-engineer-example",
+      "title": "Data Engineer",
+      "company": "Example Company",
+      "location": "Berlin",
+      "remote": true,
+      "sourceUrl": "https://www.arbeitnow.com/jobs/data-engineer-example",
+      "postedAt": "2026-09-20T08:00:00Z",
+      "firstSeenAt": "2026-09-21T09:00:00Z",
+      "lastSeenAt": "2026-09-22T09:00:00Z"
+    }
+  ],
+  "page": 1,
+  "size": 5,
+  "totalItems": 26,
+  "totalPages": 6
+}
 ```
 
-This endpoint retrieves fresh listings from the configured providers without persisting them.
+Results are ordered by `postedAt` from newest to oldest, with the database `id` used as a deterministic tie-breaker.
+
+The database must contain ingested jobs before this endpoint can return results. Use the ingestion endpoint below to populate or refresh it.
+
+Invalid pagination returns an HTTP 400 Problem Detail response:
+
+```json
+{
+  "detail": "page must be at least 1",
+  "instance": "/api/jobs",
+  "status": 400,
+  "title": "Invalid request"
+}
+```
 
 ### Ingest jobs
 
@@ -239,10 +277,12 @@ The test suite covers:
 - normalization into `JobPosting`;
 - mocked HTTP communication;
 - aggregation across multiple sources;
-- REST endpoint behavior;
 - ingestion workflow orchestration;
 - PostgreSQL upsert and deduplication;
 - transactional rollback;
+- persisted filtering, ordering, pagination, and row mapping;
+- pagination metadata calculation;
+- REST success and Problem Detail error responses;
 - Flyway migration and Spring application context startup.
 
 The tests do not modify the PostgreSQL database created by `compose.yml`. Testcontainers provides a separate disposable database on a random port.
@@ -256,15 +296,22 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
 └── src
     ├── main
     │   ├── java/io/github/saveriobutright/jobradar
+    │   │   ├── api
+    │   │   │   └── ApiExceptionHandler.java
     │   │   ├── jobs
     │   │   │   ├── persistence
     │   │   │   │   └── JobPostingStore.java
+    │   │   │   ├── InvalidSearchCriteriaException.java
     │   │   │   ├── JobController.java
     │   │   │   ├── JobIngestionController.java
     │   │   │   ├── JobIngestionResult.java
     │   │   │   ├── JobIngestionService.java
     │   │   │   ├── JobPosting.java
-    │   │   │   └── JobSearchService.java
+    │   │   │   ├── JobSearchCriteria.java
+    │   │   │   ├── JobSearchResult.java
+    │   │   │   ├── JobSearchService.java
+    │   │   │   ├── StoredJobPosting.java
+    │   │   │   └── StoredJobSearchService.java
     │   │   ├── sources
     │   │   │   ├── arbeitnow
     │   │   │   │   ├── ArbeitnowClient.java
@@ -298,7 +345,7 @@ Please use the public API responsibly and review the provider's terms before ope
 - [x] PostgreSQL integration tests with Testcontainers
 - [x] Docker Compose development environment
 - [ ] Scheduled ingestion pipeline
-- [ ] Persistent search and filtering
+- [x] Persistent search, filtering, and pagination
 - [ ] Relevance scoring for data engineering and AI roles
 - [ ] Web dashboard
 - [ ] Container image for the application
