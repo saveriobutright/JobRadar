@@ -4,6 +4,9 @@ import io.github.saveriobutright.jobradar.TestcontainersConfiguration;
 import io.github.saveriobutright.jobradar.jobs.JobPosting;
 import io.github.saveriobutright.jobradar.jobs.JobSearchCriteria;
 import io.github.saveriobutright.jobradar.jobs.StoredJobPosting;
+import io.github.saveriobutright.jobradar.jobs.scoring.JobRelevanceScore;
+import io.github.saveriobutright.jobradar.jobs.scoring.ScoredJobPosting;
+import io.github.saveriobutright.jobradar.jobs.JobSort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +44,9 @@ class JobPostingStoreTest {
                 "data-engineer-example",
                 "Data Engineer",
                 "Example Company",
+                "Build initial data pipelines",
+                List.of("Data"),
+                List.of("Full-time"),
                 "Berlin",
                 false,
                 URI.create("https://example.com/jobs/original"),
@@ -52,6 +58,9 @@ class JobPostingStoreTest {
                 "data-engineer-example",
                 "Senior Data Engineer",
                 "Example Company",
+                "Build scalable data platforms with Java.",
+                List.of("Data", "Java"),
+                List.of("Full-time", "Permanent"),
                 "Remote",
                 true,
                 URI.create("https://example.com/jobs/updated"),
@@ -97,6 +106,27 @@ class JobPostingStoreTest {
         assertThat(count).isEqualTo(1);
         assertThat(title).isEqualTo("Senior Data Engineer");
         assertThat(remote).isTrue();
+
+        JobSearchCriteria criteria = new JobSearchCriteria(
+                1,
+                10,
+                null,
+                null,
+                null
+        );
+
+        StoredJobPosting storedJob = store.find(criteria).get(0);
+
+        assertThat(storedJob.description())
+                .isEqualTo(
+                        "Build scalable data platforms with Java."
+                );
+
+        assertThat(storedJob.tags())
+                .containsExactly("Data", "Java");
+
+        assertThat(storedJob.jobTypes())
+                .containsExactly("Full-time", "Permanent");
     }
 
     @Test
@@ -229,6 +259,146 @@ class JobPostingStoreTest {
                         "data-onsite",
                         "data-newest",
                         "data-older"
+                );
+    }
+
+    @Test
+    void storesAndReadsExplainableRelevanceScore() {
+        JobPosting job = new JobPosting(
+                "Arbeitnow",
+                "scored-data-engineer",
+                "Senior Data Engineer",
+                "Example Company",
+                "Build streaming platforms with Java and SQL.",
+                List.of("Kafka", "Data"),
+                List.of("Full-time"),
+                "Remote",
+                true,
+                URI.create(
+                        "https://example.com/jobs/"
+                                + "scored-data-engineer"
+                ),
+                Instant.parse("2026-09-23T10:00:00Z")
+        );
+
+        JobRelevanceScore relevance =
+                new JobRelevanceScore(
+                        90,
+                        45,
+                        30,
+                        10,
+                        5,
+                        List.of("data engineer"),
+                        List.of("java", "sql", "kafka"),
+                        List.of("full-time")
+                );
+
+        ScoredJobPosting scoredJob =
+                new ScoredJobPosting(
+                        job,
+                        relevance
+                );
+
+        assertThat(store.upsert(scoredJob))
+                .isEqualTo(1);
+
+        JobSearchCriteria criteria =
+                new JobSearchCriteria(
+                        1,
+                        10,
+                        null,
+                        null,
+                        null
+                );
+
+        StoredJobPosting storedJob =
+                store.find(criteria).get(0);
+
+        assertThat(storedJob.relevance())
+                .isEqualTo(relevance);
+
+        assertThat(storedJob.scoredAt())
+                .isNotNull();
+    }
+
+    @Test
+    void ordersJobsByRelevanceWhenRequested() {
+        JobPosting olderRelevantJob = new JobPosting(
+                "Arbeitnow",
+                "high-relevance",
+                "Senior Data Engineer",
+                "Example Company",
+                "Berlin",
+                false,
+                URI.create(
+                        "https://example.com/jobs/high-relevance"
+                ),
+                Instant.parse("2026-09-20T10:00:00Z")
+        );
+
+        JobPosting newerLessRelevantJob = new JobPosting(
+                "Arbeitnow",
+                "low-relevance",
+                "Backend Developer",
+                "Example Company",
+                "Remote",
+                true,
+                URI.create(
+                        "https://example.com/jobs/low-relevance"
+                ),
+                Instant.parse("2026-09-23T10:00:00Z")
+        );
+
+        JobRelevanceScore highRelevance =
+                new JobRelevanceScore(
+                        80,
+                        45,
+                        25,
+                        10,
+                        0,
+                        List.of("data engineer"),
+                        List.of("sql", "python"),
+                        List.of("full-time")
+                );
+
+        JobRelevanceScore lowRelevance =
+                new JobRelevanceScore(
+                        20,
+                        0,
+                        15,
+                        0,
+                        5,
+                        List.of(),
+                        List.of("java"),
+                        List.of()
+                );
+
+        store.upsertAllScored(List.of(
+                new ScoredJobPosting(
+                        olderRelevantJob,
+                        highRelevance
+                ),
+                new ScoredJobPosting(
+                        newerLessRelevantJob,
+                        lowRelevance
+                )
+        ));
+
+        JobSearchCriteria criteria =
+                new JobSearchCriteria(
+                        1,
+                        10,
+                        null,
+                        null,
+                        null,
+                        JobSort.RELEVANCE
+                );
+
+        assertThat(store.find(criteria))
+                .extracting(StoredJobPosting::sourceId)
+                .containsExactly(
+                        "high-relevance",
+                        "low-relevance"
                 );
     }
 }

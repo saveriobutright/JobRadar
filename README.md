@@ -10,20 +10,25 @@ An extensible job aggregation backend for data engineering and AI opportunities.
 [![CI](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml/badge.svg)](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> JobRadar is under active development. It currently provides a tested pipeline from an external job source to normalized, transactionally persisted PostgreSQL data.
+> JobRadar is under active development. It currently provides a tested pipeline from external job data to normalized PostgreSQL records with configurable, explainable relevance scoring.
 
 ## Features
 
 - Fetches current job listings from the Arbeitnow public API.
 - Converts provider-specific data into an immutable, source-neutral job model.
+- Converts HTML descriptions into normalized plain text.
+- Preserves provider tags and job types for search and scoring.
 - Supports replaceable job providers through the `JobSource` interface.
-- Aggregates results from every configured provider.
 - Persists normalized jobs in PostgreSQL.
 - Prevents duplicate listings with atomic database upserts.
-- Tracks when each listing was first and most recently observed.
+- Tracks when each listing was first seen, refreshed, and scored.
+- Calculates deterministic relevance scores from 0 to 100.
+- Explains every score through role, skill, job-type, and remote components.
+- Uses a configurable profile for data engineering and AI opportunities.
+- Orders stored jobs by publication date or relevance.
 - Manages schema changes through versioned Flyway migrations.
 - Provides a reproducible PostgreSQL environment with Docker Compose.
-- Exposes manual ingestion and persisted job search through Spring MVC REST endpoints.
+- Exposes manual ingestion and persisted search through Spring MVC REST endpoints.
 - Supports opt-in scheduled ingestion with configurable page and delays.
 - Filters stored jobs by title or company text, location, and remote status.
 - Returns deterministic one-based pagination with total result metadata.
@@ -37,27 +42,32 @@ flowchart LR
     A[Arbeitnow API] --> B[ArbeitnowClient]
     B --> C[ArbeitnowJobMapper]
     C --> D[JobPosting]
-    D --> E[JobSearchService]
 
+    E[JobSearchService] --> B
     F["POST /api/ingestions/jobs"] --> G[JobIngestionController]
-    N[Schedule configuration] --> O[JobIngestionScheduler]
-    G --> H[JobIngestionService]
-    O --> H
-    H --> E
-    H --> I[JobPostingStore]
+    H[JobIngestionScheduler] --> I[JobIngestionService]
+    G --> I
+    I --> E
 
-    J["GET /api/jobs"] --> K[JobController]
-    K --> L[StoredJobSearchService]
-    L --> I
+    D --> J[JobRelevanceScorer]
+    K[Configurable scoring profile] --> J
+    J --> L[ScoredJobPosting]
+    L --> M[JobPostingStore]
 
-    I --> M[(PostgreSQL)]
+    N["GET /api/jobs"] --> O[JobController]
+    O --> P[StoredJobSearchService]
+    P --> M
+
+    M --> Q[(PostgreSQL)]
 ```
 
 Provider-specific DTOs remain inside their integration package. The rest of the application works with the normalized `JobPosting` model and the common `JobSource` contract.
 
-Manual API requests and the opt-in `JobIngestionScheduler` both delegate to `JobIngestionService`, keeping provider retrieval and transactional persistence in one workflow. Fixed-delay scheduling prevents overlapping runs within one application instance.
+`ArbeitnowJobMapper` converts provider HTML into plain text and normalizes tags and job types before the data enters the application pipeline.
 
-`StoredJobSearchService` performs consistent read-only searches over PostgreSQL, while `JobPostingStore` owns the database-specific SQL. Flyway keeps the schema reproducible and versioned.
+Manual requests and the opt-in scheduler both delegate to `JobIngestionService`. Each normalized job is evaluated by `JobRelevanceScorer` against the configured profile before `JobPostingStore` persists the listing and its score atomically.
+
+`StoredJobSearchService` performs consistent read-only searches over PostgreSQL. `JobPostingStore` owns database-specific SQL, deterministic ordering, array conversion, filtering, and pagination. Flyway keeps the schema reproducible and versioned.
 
 ## Requirements
 
@@ -135,31 +145,32 @@ This endpoint searches jobs already persisted in PostgreSQL.
 
 Supported query parameters:
 
-| Parameter  | Default | Description                                             |
-|------------|--------:|---------------------------------------------------------|
-| `page`     |     `1` | One-based page number                                   |
-| `size`     |    `20` | Results per page, from 1 to 100                         |
-| `query`    |       — | Case-insensitive text contained in the title or company |
-| `location` |       — | Case-insensitive text contained in the location         |
-| `remote`   |       — | `true` for remote jobs or `false` for onsite jobs       |
+| Parameter  |  Default | Description                                             |
+|------------|---------:|---------------------------------------------------------|
+| `page`     |      `1` | One-based page number                                   |
+| `size`     |     `20` | Results per page, from 1 to 100                         |
+| `query`    |        — | Case-insensitive text contained in the title or company |
+| `location` |        — | Case-insensitive text contained in the location         |
+| `remote`   |        — | `true` for remote jobs or `false` for onsite jobs       |
+| `sort`     | `newest` | `newest` or `relevance`                                 |
 
 Example:
 
 ```http
-GET /api/jobs?page=1&size=5&query=data&location=berlin&remote=true
+GET /api/jobs?page=1&size=5&query=data&sort=relevance
 ```
 
 Example with PowerShell:
 
 ```powershell
 Invoke-RestMethod `
-    -Uri 'http://localhost:8080/api/jobs?page=1&size=5&query=data'
+    -Uri 'http://localhost:8080/api/jobs?page=1&size=5&query=data&sort=relevance'
 ```
 
 Example with curl:
 
 ```bash
-curl "http://localhost:8080/api/jobs?page=1&size=5&query=data"
+curl "http://localhost:8080/api/jobs?page=1&size=5&query=data&sort=relevance"
 ```
 
 Example response:
@@ -171,14 +182,41 @@ Example response:
       "id": 42,
       "source": "Arbeitnow",
       "sourceId": "data-engineer-example",
-      "title": "Data Engineer",
+      "title": "Senior Data Engineer",
       "company": "Example Company",
+      "description": "Build streaming platforms with Java and SQL.",
+      "tags": [
+        "Kafka",
+        "Data"
+      ],
+      "jobTypes": [
+        "Full-time"
+      ],
       "location": "Berlin",
       "remote": true,
       "sourceUrl": "https://www.arbeitnow.com/jobs/data-engineer-example",
       "postedAt": "2026-09-20T08:00:00Z",
       "firstSeenAt": "2026-09-21T09:00:00Z",
-      "lastSeenAt": "2026-09-22T09:00:00Z"
+      "lastSeenAt": "2026-09-23T09:00:00Z",
+      "relevance": {
+        "score": 90,
+        "rolePoints": 45,
+        "skillPoints": 30,
+        "jobTypePoints": 10,
+        "remotePoints": 5,
+        "matchedRoles": [
+          "data engineer"
+        ],
+        "matchedSkills": [
+          "java",
+          "sql",
+          "kafka"
+        ],
+        "matchedJobTypes": [
+          "full-time"
+        ]
+      },
+      "scoredAt": "2026-09-23T09:00:00Z"
     }
   ],
   "page": 1,
@@ -188,11 +226,11 @@ Example response:
 }
 ```
 
-Results are ordered by `postedAt` from newest to oldest, with the database `id` used as a deterministic tie-breaker.
+`sort=newest` orders results by `postedAt` from newest to oldest. `sort=relevance` orders results by descending relevance score. Both modes use stable database tie-breakers for deterministic pagination.
 
 The database must contain ingested jobs before this endpoint can return results. Use the ingestion endpoint below to populate or refresh it.
 
-Invalid pagination returns an HTTP 400 Problem Detail response:
+Invalid pagination or sort values return an HTTP 400 Problem Detail response:
 
 ```json
 {
@@ -242,6 +280,50 @@ Example response:
 
 Repeated ingestion of the same provider page does not create duplicates. Existing records retain their original `first_seen_at` value and receive an updated `last_seen_at` value.
 
+## Relevance Scoring
+
+Every normalized job is scored during ingestion before it is persisted. The algorithm is deterministic, requires no external AI service, and exposes the signals that produced the result.
+
+| Component         | Maximum points | Rule                                                                           |
+|-------------------|---------------:|--------------------------------------------------------------------------------|
+| Target role       |             45 | At least one configured role appears in the job title                          |
+| Skills            |             40 | Proportional to the configured skills found in the title, description, or tags |
+| Job type          |             10 | At least one preferred job type matches                                        |
+| Remote preference |              5 | The profile prefers remote work and the job is remote                          |
+
+The final score is the sum of the four components and is always between 0 and 100.
+
+Keyword matching is case-insensitive and uses token boundaries. For example, the skill `ai` does not accidentally match a word such as `maintain`.
+
+The default profile targets data engineering and AI roles:
+
+| Property                               | Environment variable                   | Default                                                                                                                 |
+|----------------------------------------|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `jobradar.scoring.target-roles`        | `JOBRADAR_SCORING_TARGET_ROLES`        | `Data Engineer, Analytics Engineer, Machine Learning Engineer, AI Engineer`                                             |
+| `jobradar.scoring.skills`              | `JOBRADAR_SCORING_SKILLS`              | `SQL, Python, Java, Spring Boot, PostgreSQL, Docker, Apache Kafka, Apache Spark, Apache Airflow, AWS, Machine Learning` |
+| `jobradar.scoring.preferred-job-types` | `JOBRADAR_SCORING_PREFERRED_JOB_TYPES` | `Full-time`                                                                                                             |
+| `jobradar.scoring.remote-preferred`    | `JOBRADAR_SCORING_REMOTE_PREFERRED`    | `true`                                                                                                                  |
+
+Comma-separated environment variables can override the list properties without changing the repository.
+
+Example on Windows PowerShell:
+
+```powershell
+$env:JOBRADAR_SCORING_TARGET_ROLES='Data Engineer,AI Engineer'
+$env:JOBRADAR_SCORING_SKILLS='SQL,Python,Java,Kafka'
+.\mvnw.cmd spring-boot:run
+```
+
+Example on macOS or Linux:
+
+```bash
+JOBRADAR_SCORING_TARGET_ROLES='Data Engineer,AI Engineer' \
+JOBRADAR_SCORING_SKILLS='SQL,Python,Java,Kafka' \
+    ./mvnw spring-boot:run
+```
+
+Scores are persisted snapshots of the profile used during ingestion. After changing the profile, ingest the relevant provider pages again to refresh their scores.
+
 ## Scheduled Ingestion
 
 Automatic ingestion is disabled by default. This prevents a freshly cloned application from sending unexpected requests to the public provider API.
@@ -267,7 +349,8 @@ $env:JOBRADAR_INGESTION_SCHEDULE_ENABLED='true'
 Enable it on macOS or Linux:
 
 ```bash
-JOBRADAR_INGESTION_SCHEDULE_ENABLED=true \
+JOBRADAR_SCORING_TARGET_ROLES='Data Engineer,AI Engineer' \
+JOBRADAR_SCORING_SKILLS='SQL,Python,Java,Kafka' \
     ./mvnw spring-boot:run
 ```
 
@@ -284,6 +367,10 @@ source + source_id
 ```
 
 The database enforces this identity with a composite unique constraint. JobRadar uses PostgreSQL `INSERT ... ON CONFLICT ... DO UPDATE` to insert new listings or refresh existing ones atomically.
+
+Normalized descriptions are stored as plain text. Provider tags, job types, and matched scoring signals use PostgreSQL `TEXT[]` columns.
+
+The database stores both the total relevance score and its individual components. Check constraints guarantee a range from 0 to 100 and require the total to equal the sum of its components. A descending relevance index supports efficient ranked searches.
 
 A complete provider page is persisted inside one transaction. If any listing cannot be stored, the entire page is rolled back.
 
@@ -312,17 +399,22 @@ On macOS or Linux:
 The test suite covers:
 
 - provider JSON deserialization;
-- normalization into `JobPosting`;
+- HTML description and metadata normalization;
+- source-neutral job mapping;
 - mocked HTTP communication;
 - aggregation across multiple sources;
-- ingestion workflow orchestration;
+- deterministic relevance scoring and keyword boundaries;
+- configurable profile binding;
+- ingestion scoring and persistence orchestration;
 - scheduled ingestion delegation, conditional activation, and configuration validation;
 - PostgreSQL upsert and deduplication;
 - transactional rollback;
-- persisted filtering, ordering, pagination, and row mapping;
+- enriched content and explainable score persistence;
+- newest-first and relevance-first ordering;
+- stored filtering, pagination, and row mapping;
 - pagination metadata calculation;
 - REST success and Problem Detail error responses;
-- Flyway migration and Spring application context startup.
+- Flyway migrations and Spring application context startup.
 
 The tests do not modify the PostgreSQL database created by `compose.yml`. Testcontainers provides a separate disposable database on a random port.
 
@@ -344,6 +436,13 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
     │   │   │   │   ├── JobIngestionScheduleProperties.java
     │   │   │   │   ├── JobIngestionScheduler.java
     │   │   │   │   └── JobSchedulingConfiguration.java
+    │   │   │   ├── scoring
+    │   │   │   │   ├── JobRelevanceProfile.java
+    │   │   │   │   ├── JobRelevanceScore.java
+    │   │   │   │   ├── JobRelevanceScorer.java
+    │   │   │   │   ├── JobScoringConfiguration.java
+    │   │   │   │   ├── JobScoringProperties.java
+    │   │   │   │   └── ScoredJobPosting.java
     │   │   │   ├── InvalidSearchCriteriaException.java
     │   │   │   ├── JobController.java
     │   │   │   ├── JobIngestionController.java
@@ -353,6 +452,7 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
     │   │   │   ├── JobSearchCriteria.java
     │   │   │   ├── JobSearchResult.java
     │   │   │   ├── JobSearchService.java
+    │   │   │   ├── JobSort.java
     │   │   │   ├── StoredJobPosting.java
     │   │   │   └── StoredJobSearchService.java
     │   │   ├── sources
@@ -366,7 +466,9 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
     │   └── resources
     │       ├── application.properties
     │       └── db/migration
-    │           └── V1__create_job_postings.sql
+    │           ├── V1__create_job_postings.sql
+    │           ├── V2__add_job_content.sql
+    │           └── V3__add_job_relevance.sql
     └── test
         └── java/io/github/saveriobutright/jobradar
             └── TestcontainersConfiguration.java
@@ -391,7 +493,7 @@ Please use the public API responsibly and review the provider's terms before ope
 - [x] Docker Compose development environment
 - [x] Configurable scheduled ingestion pipeline
 - [x] Persistent search, filtering, and pagination
-- [ ] Relevance scoring for data engineering and AI roles
+- [x] Explainable relevance scoring for data engineering and AI roles
 - [ ] Web dashboard
 - [ ] Container image for the application
 

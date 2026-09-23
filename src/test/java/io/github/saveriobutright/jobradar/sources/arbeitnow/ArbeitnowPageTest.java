@@ -22,7 +22,9 @@ public class ArbeitnowPageTest {
                       "remote": true,
                       "url": "https://www.arbeitnow.com/jobs/data-engineer-example",
                       "created_at": 1720000000,
-                      "description": "This extra field should be ignored"
+                      "description": "<p>Build reliable data pipelines with Java and SQL.</p>",
+                      "tags": ["IT", "Data"],
+                      "job_types": ["Full-time"]
                     }
                   ],
                   "links": {
@@ -44,6 +46,9 @@ public class ArbeitnowPageTest {
         assertThat(page.links().next()).endsWith("page=2");
         assertThat(job.slug()).isEqualTo("data-engineer-example");
         assertThat(job.companyName()).isEqualTo("Example Company");
+        assertThat(job.description()).contains("reliable data pipelines");
+        assertThat(job.tags()).containsExactly("IT", "Data");
+        assertThat(job.jobTypes()).containsExactly("Full-time");
         assertThat(job.remote()).isTrue();
         assertThat(job.createdAt()).isEqualTo(1720000000L);
     }
