@@ -29,7 +29,8 @@ class JobControllerTest {
                 10,
                 "data",
                 "berlin",
-                true
+                true,
+                JobSort.RELEVANCE
         );
 
         StoredJobPosting storedJob = new StoredJobPosting(
@@ -72,6 +73,7 @@ class JobControllerTest {
                                 .queryParam("query", "data")
                                 .queryParam("location", "berlin")
                                 .queryParam("remote", "true")
+                                .queryParam("sort", "relevance")
                 )
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(
@@ -118,6 +120,49 @@ class JobControllerTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail")
                         .value("page must be at least 1"))
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/jobs"));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void returnsBadRequestForInvalidSort()
+            throws Exception {
+        StoredJobSearchService service =
+                mock(StoredJobSearchService.class);
+
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new JobController(service))
+                .setControllerAdvice(
+                        new ApiExceptionHandler()
+                )
+                .build();
+
+        mockMvc.perform(
+                        get("/api/jobs")
+                                .queryParam(
+                                        "sort",
+                                        "unknown"
+                                )
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(
+                        content()
+                                .contentTypeCompatibleWith(
+                                        MediaType
+                                                .APPLICATION_PROBLEM_JSON
+                                )
+                )
+                .andExpect(jsonPath("$.title")
+                        .value("Invalid request"))
+                .andExpect(jsonPath("$.status")
+                        .value(400))
+                .andExpect(jsonPath("$.detail")
+                        .value(
+                                "sort must be one of: "
+                                        + "newest, relevance"
+                        ))
                 .andExpect(jsonPath("$.instance")
                         .value("/api/jobs"));
 

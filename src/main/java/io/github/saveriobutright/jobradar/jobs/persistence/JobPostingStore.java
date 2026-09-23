@@ -2,56 +2,107 @@ package io.github.saveriobutright.jobradar.jobs.persistence;
 
 import io.github.saveriobutright.jobradar.jobs.JobPosting;
 import io.github.saveriobutright.jobradar.jobs.JobSearchCriteria;
+import io.github.saveriobutright.jobradar.jobs.JobSort;
 import io.github.saveriobutright.jobradar.jobs.StoredJobPosting;
+import io.github.saveriobutright.jobradar.jobs.scoring.JobRelevanceScore;
+import io.github.saveriobutright.jobradar.jobs.scoring.ScoredJobPosting;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.SqlArrayValue;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
+import java.sql.Array;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @Repository
 public class JobPostingStore {
 
+    private static final JobRelevanceScore UNSCORED_RELEVANCE =
+            new JobRelevanceScore(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    List.of(),
+                    List.of(),
+                    List.of()
+            );
+
     private static final String UPSERT_SQL = """
-            INSERT INTO job_postings (
-                source,
-                source_id,
-                title,
-                company,
-                location,
-                remote,
-                source_url,
-                posted_at
-            )
-            VALUES (
-                :source,
-                :sourceId,
-                :title,
-                :company,
-                :location,
-                :remote,
-                :sourceUrl,
-                :postedAt
-            )
-            ON CONFLICT (source, source_id)
-            DO UPDATE SET
-                title = EXCLUDED.title,
-                company = EXCLUDED.company,
-                location = EXCLUDED.location,
-                remote = EXCLUDED.remote,
-                source_url = EXCLUDED.source_url,
-                posted_at = EXCLUDED.posted_at,
-                last_seen_at = CURRENT_TIMESTAMP
-            """;
+        INSERT INTO job_postings (
+            source,
+            source_id,
+            title,
+            company,
+            description,
+            tags,
+            job_types,
+            relevance_score,
+            role_points,
+            skill_points,
+            job_type_points,
+            remote_points,
+            matched_roles,
+            matched_skills,
+            matched_job_types,
+            scored_at,
+            location,
+            remote,
+            source_url,
+            posted_at
+        )
+        VALUES (
+            :source,
+            :sourceId,
+            :title,
+            :company,
+            :description,
+            :tags,
+            :jobTypes,
+            :relevanceScore,
+            :rolePoints,
+            :skillPoints,
+            :jobTypePoints,
+            :remotePoints,
+            :matchedRoles,
+            :matchedSkills,
+            :matchedJobTypes,
+            :scoredAt,
+            :location,
+            :remote,
+            :sourceUrl,
+            :postedAt
+        )
+        ON CONFLICT (source, source_id)
+        DO UPDATE SET
+            title = EXCLUDED.title,
+            company = EXCLUDED.company,
+            description = EXCLUDED.description,
+            tags = EXCLUDED.tags,
+            job_types = EXCLUDED.job_types,
+            relevance_score = EXCLUDED.relevance_score,
+            role_points = EXCLUDED.role_points,
+            skill_points = EXCLUDED.skill_points,
+            job_type_points = EXCLUDED.job_type_points,
+            remote_points = EXCLUDED.remote_points,
+            matched_roles = EXCLUDED.matched_roles,
+            matched_skills = EXCLUDED.matched_skills,
+            matched_job_types = EXCLUDED.matched_job_types,
+            scored_at = EXCLUDED.scored_at,
+            location = EXCLUDED.location,
+            remote = EXCLUDED.remote,
+            source_url = EXCLUDED.source_url,
+            posted_at = EXCLUDED.posted_at,
+            last_seen_at = CURRENT_TIMESTAMP
+        """;
 
     private static final String FIND_SQL = """
             SELECT
@@ -60,6 +111,18 @@ public class JobPostingStore {
                 source_id,
                 title,
                 company,
+                description,
+                tags,
+                job_types,
+                relevance_score,
+                role_points,
+                skill_points,
+                job_type_points,
+                remote_points,
+                matched_roles,
+                matched_skills,
+                matched_job_types,
+                scored_at,
                 location,
                 remote,
                 source_url,
@@ -68,7 +131,7 @@ public class JobPostingStore {
                 last_seen_at
             FROM job_postings
             %s
-            ORDER BY posted_at DESC, id DESC
+            ORDER BY %s
             LIMIT :limit
             OFFSET :offset
             """;
@@ -86,6 +149,9 @@ public class JobPostingStore {
                     resultSet.getString("source_id"),
                     resultSet.getString("title"),
                     resultSet.getString("company"),
+                    resultSet.getString("description"),
+                    readTextArray(resultSet, "tags"),
+                    readTextArray(resultSet, "job_types"),
                     resultSet.getString("location"),
                     resultSet.getBoolean("remote"),
                     URI.create(resultSet.getString("source_url")),
@@ -100,7 +166,27 @@ public class JobPostingStore {
                     resultSet.getObject(
                             "last_seen_at",
                             OffsetDateTime.class
-                    ).toInstant()
+                    ).toInstant(),
+                    new JobRelevanceScore(
+                            resultSet.getInt("relevance_score"),
+                            resultSet.getInt("role_points"),
+                            resultSet.getInt("skill_points"),
+                            resultSet.getInt("job_type_points"),
+                            resultSet.getInt("remote_points"),
+                            readTextArray(
+                                    resultSet,
+                                    "matched_roles"
+                            ),
+                            readTextArray(
+                                    resultSet,
+                                    "matched_skills"
+                            ),
+                            readTextArray(
+                                    resultSet,
+                                    "matched_job_types"
+                            )
+                    ),
+                    readNullableInstant(resultSet, "scored_at")
             );
 
     private final JdbcClient jdbcClient;
@@ -118,14 +204,114 @@ public class JobPostingStore {
                 .sum();
     }
 
+    @Transactional
+    public int upsertAllScored(
+            List<ScoredJobPosting> scoredJobs
+    ) {
+        Objects.requireNonNull(
+                scoredJobs,
+                "scoredJobs must not be null"
+        );
+
+        return scoredJobs.stream()
+                .mapToInt(this::upsert)
+                .sum();
+    }
+
     public int upsert(JobPosting job) {
+        return upsert(
+                job,
+                UNSCORED_RELEVANCE,
+                null
+        );
+    }
+
+    public int upsert(ScoredJobPosting scoredJob) {
+        Objects.requireNonNull(
+                scoredJob,
+                "scoredJob must not be null"
+        );
+
+        return upsert(
+                scoredJob.job(),
+                scoredJob.relevance(),
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
+    }
+
+    private int upsert(
+            JobPosting job,
+            JobRelevanceScore relevance,
+            OffsetDateTime scoredAt
+    ) {
         Objects.requireNonNull(job, "job must not be null");
+        Objects.requireNonNull(
+                relevance,
+                "relevance must not be null"
+        );
 
         return jdbcClient.sql(UPSERT_SQL)
                 .param("source", job.source())
                 .param("sourceId", job.sourceId())
                 .param("title", job.title())
                 .param("company", job.company())
+                .param("description", job.description())
+                .param(
+                        "tags",
+                        new SqlArrayValue(
+                                "text",
+                                job.tags().toArray(String[]::new)
+                        )
+                )
+                .param(
+                        "jobTypes",
+                        new SqlArrayValue(
+                                "text",
+                                job.jobTypes().toArray(String[]::new)
+                        )
+                )
+                .param(
+                        "relevanceScore",
+                        relevance.score()
+                )
+                .param("rolePoints", relevance.rolePoints())
+                .param("skillPoints", relevance.skillPoints())
+                .param(
+                        "jobTypePoints",
+                        relevance.jobTypePoints()
+                )
+                .param(
+                        "remotePoints",
+                        relevance.remotePoints()
+                )
+                .param(
+                        "matchedRoles",
+                        new SqlArrayValue(
+                                "text",
+                                relevance.matchedRoles().toArray(String[]::new)
+                        )
+                )
+                .param(
+                        "matchedSkills",
+                        new SqlArrayValue(
+                                "text",
+                                relevance.matchedSkills()
+                                        .toArray(String[]::new)
+                        )
+                )
+                .param(
+                        "matchedJobTypes",
+                        new SqlArrayValue(
+                                "text",
+                                relevance.matchedJobTypes()
+                                        .toArray(String[]::new)
+                        )
+                )
+                .param(
+                        "scoredAt",
+                        scoredAt,
+                        Types.TIMESTAMP_WITH_TIMEZONE
+                )
                 .param("location", job.location(), Types.VARCHAR)
                 .param("remote", job.remote())
                 .param("sourceUrl", job.sourceUrl().toString())
@@ -143,7 +329,8 @@ public class JobPostingStore {
 
         return jdbcClient
                 .sql(FIND_SQL.formatted(
-                        searchSql.whereClause()
+                        searchSql.whereClause(),
+                        orderBy(criteria.sort())
                 ))
                 .params(searchSql.parameters())
                 .param("limit", criteria.size())
@@ -162,6 +349,52 @@ public class JobPostingStore {
                 .params(searchSql.parameters())
                 .query(Long.class)
                 .single();
+    }
+
+    private static List<String> readTextArray(
+            ResultSet resultSet,
+            String columnName
+    ) throws SQLException {
+        Array sqlArray = resultSet.getArray(columnName);
+
+        if (sqlArray == null) {
+            return List.of();
+        }
+
+        try {
+            String[] values = (String[]) sqlArray.getArray();
+            return List.copyOf(Arrays.asList(values));
+        } finally {
+            sqlArray.free();
+        }
+    }
+
+    private static java.time.Instant readNullableInstant(
+            ResultSet resultSet,
+            String columnName
+    ) throws SQLException {
+        OffsetDateTime value = resultSet.getObject(
+                columnName,
+                OffsetDateTime.class
+        );
+
+        return value == null
+                ? null
+                : value.toInstant();
+    }
+
+    private static String orderBy(JobSort sort) {
+        return switch (sort) {
+            case NEWEST ->
+                    "posted_at DESC, id DESC";
+
+            case RELEVANCE ->
+                    """
+                    relevance_score DESC,
+                    posted_at DESC,
+                    id DESC
+                    """.strip();
+        };
     }
 
     private static SearchSql buildSearchSql(

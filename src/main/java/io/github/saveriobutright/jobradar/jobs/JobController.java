@@ -28,14 +28,20 @@ public final class JobController {
             @RequestParam(name = "location", required = false)
             String location,
             @RequestParam(name = "remote", required = false)
-            Boolean remote
+            Boolean remote,
+            @RequestParam(
+                    name = "sort",
+                    defaultValue = "newest"
+            )
+            String sort
     ) {
         JobSearchCriteria criteria = new JobSearchCriteria(
                 page,
                 size,
                 query,
                 location,
-                remote
+                remote,
+                JobSort.from(sort)
         );
 
         return storedJobSearchService.search(criteria);

@@ -5,7 +5,8 @@ public record JobSearchCriteria(
         int size,
         String query,
         String location,
-        Boolean remote
+        Boolean remote,
+        JobSort sort
 ) {
 
     public JobSearchCriteria {
@@ -23,6 +24,27 @@ public record JobSearchCriteria(
 
         query = normalize(query);
         location = normalize(location);
+
+        sort = sort == null
+                ? JobSort.NEWEST
+                : sort;
+    }
+
+    public JobSearchCriteria(
+            int page,
+            int size,
+            String query,
+            String location,
+            Boolean remote
+    ) {
+        this(
+                page,
+                size,
+                query,
+                location,
+                remote,
+                JobSort.NEWEST
+        );
     }
 
     public long offset() {
@@ -36,6 +58,8 @@ public record JobSearchCriteria(
 
         String normalized = value.trim();
 
-        return normalized.isEmpty() ? null : normalized;
+        return normalized.isEmpty()
+                ? null
+                : normalized;
     }
 }
