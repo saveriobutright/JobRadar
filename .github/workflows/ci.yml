@@ -47,6 +47,10 @@ jobs:
       - name: Start application stack
         run: docker compose up --build --detach --wait --wait-timeout 180
 
+      - name: Verify non-root runtime
+        run: |
+          docker compose exec -T app sh -c 'test "$(id -u)" -ne 0'
+
       - name: Verify dashboard response
         run: curl --fail --silent --show-error http://localhost:8080/ > /dev/null
 
@@ -57,7 +61,3 @@ jobs:
       - name: Stop application stack
         if: always()
         run: docker compose down --volumes
-
-      - name: Verify non-root runtime
-        run: |
-          docker compose exec -T app sh -c 'test "$(id -u)" -ne 0'
