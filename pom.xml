@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>io.github.saveriobutright</groupId>
 	<artifactId>job-radar</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.0</version>
 	<name>JobRadar</name>
 	<description>Discover and organize data engineering and AI job opportunities</description>
 	<url>https://github.com/saveriobutright/JobRadar</url>

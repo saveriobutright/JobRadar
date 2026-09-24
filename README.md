@@ -8,6 +8,7 @@ An extensible job intelligence platform for discovering and ranking data enginee
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Maven](https://img.shields.io/badge/Maven-Wrapper-C71A36?logo=apachemaven&logoColor=white)
 [![CI](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml/badge.svg)](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/saveriobutright/JobRadar?sort=semver)](https://github.com/saveriobutright/JobRadar/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > JobRadar is under active development. It provides a tested pipeline from external job data to normalized PostgreSQL records, explainable relevance scoring, a searchable REST API, and a responsive web dashboard.
@@ -513,6 +514,7 @@ After Maven verification succeeds, GitHub Actions also validates the Compose con
 ├── .dockerignore
 ├── .env.example
 ├── .github/workflows/ci.yml
+├── CHANGELOG.md
 ├── Dockerfile
 ├── compose.yml
 ├── pom.xml
@@ -597,6 +599,12 @@ Please use the public API responsibly and review the provider's terms before ope
 - [x] Explainable relevance scoring for data engineering and AI roles
 - [x] Responsive web dashboard
 - [x] Multi-stage application container and full Compose stack
+
+## Releases
+
+The current stable release is `v0.1.0`.
+
+Version history and notable changes are documented in [CHANGELOG.md](CHANGELOG.md). Published versions and downloadable source archives are available through [GitHub Releases](https://github.com/saveriobutright/JobRadar/releases).
 
 ## License
 
