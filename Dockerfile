@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:17-jdk-jammy AS build
 
 WORKDIR /workspace
 
@@ -14,15 +14,20 @@ RUN ./mvnw -B -DskipTests package \
     && cp target/job-radar-*.jar application.jar
 
 
-FROM eclipse-temurin:17-jre-alpine AS runtime
+FROM eclipse-temurin:17-jre-jammy AS runtime
 
 LABEL org.opencontainers.image.title="JobRadar" \
       org.opencontainers.image.description="Job intelligence platform for data engineering and AI opportunities" \
       org.opencontainers.image.source="https://github.com/saveriobutright/JobRadar" \
       org.opencontainers.image.licenses="MIT"
 
-RUN addgroup -S jobradar \
-    && adduser -S jobradar -G jobradar
+RUN groupadd --system jobradar \
+    && useradd \
+        --system \
+        --gid jobradar \
+        --create-home \
+        --home-dir /app \
+        jobradar
 
 WORKDIR /app
 

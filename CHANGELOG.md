@@ -6,9 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-24
+
 ### Added
 
 - Automated multi-platform container publishing to GitHub Container Registry with semantic tags and provenance attestations.
+- Multi-platform container validation for Dockerfile pull requests.
+
+### Fixed
+
+- Replaced Alpine Temurin build and runtime images with Jammy variants that publish both AMD64 and ARM64 manifests.
 
 ## [0.1.0] - 2026-09-24
 
@@ -43,5 +50,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Complete job cards now open the original provider listing.
 - The container smoke test verifies the non-root runtime before stack cleanup.
 
-[Unreleased]: https://github.com/saveriobutright/JobRadar/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/saveriobutright/JobRadar/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/saveriobutright/JobRadar/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/saveriobutright/JobRadar/releases/tag/v0.1.0
