@@ -72,4 +72,33 @@ class ArbeitnowJobMapperTest {
         assertThat(result.tags()).isEmpty();
         assertThat(result.jobTypes()).isEmpty();
     }
+
+    @Test
+    void decodesNestedHtmlInDescription() {
+        ArbeitnowJob sourceJob = new ArbeitnowJob(
+                "encoded-description",
+                "Example Company",
+                "Data Engineer",
+                "&lt;h2 class=&quot;title&quot;&gt;"
+                        + "Company Description"
+                        + "&lt;/h2&gt;"
+                        + "&lt;p&gt;"
+                        + "Build reliable data systems."
+                        + "&lt;/p&gt;",
+                false,
+                "https://example.com/jobs/encoded-description",
+                List.of(),
+                List.of(),
+                "Italy",
+                1720000000L
+        );
+
+        JobPosting result = mapper.map(sourceJob);
+
+        assertThat(result.description())
+                .isEqualTo(
+                        "Company Description "
+                                + "Build reliable data systems."
+                );
+    }
 }

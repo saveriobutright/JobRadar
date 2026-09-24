@@ -50,7 +50,9 @@ public final class ArbeitnowJobMapper {
             return "";
         }
 
-        return Jsoup.parse(html).text();
+        String decodedHtml = Jsoup.parse(html).text();
+
+        return Jsoup.parse(decodedHtml).text();
     }
 
     private static List<String> normalizeValues(
