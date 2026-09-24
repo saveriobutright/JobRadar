@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+target
+docs
+.env
+*.iml
+*.log
+README.md
+LICENSE
+compose.yml
+mvnw.cmd

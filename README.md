@@ -30,6 +30,10 @@ An extensible job intelligence platform for discovering and ranking data enginee
 - Orders stored jobs by publication date or relevance.
 - Manages schema changes through versioned Flyway migrations.
 - Provides a reproducible PostgreSQL environment with Docker Compose.
+- Packages the application in a multi-stage Java 17 container image.
+- Runs the application container as a dedicated non-root user.
+- Starts the application and PostgreSQL with health-aware Compose dependencies.
+- Smoke-tests the complete container stack in GitHub Actions.
 - Exposes manual ingestion and persisted search through Spring MVC REST endpoints.
 - Supports opt-in scheduled ingestion with configurable page and delays.
 - Filters stored jobs by title or company text, location, and remote status.
@@ -80,13 +84,17 @@ Manual requests and the opt-in scheduler both delegate to `JobIngestionService`.
 
 `DashboardController` serves the Thymeleaf page at the application root. The dashboard uses lightweight browser JavaScript to query the existing search API, render result cards, preserve filter state in the URL, and link each opportunity to its original provider page.
 
+The multi-stage `Dockerfile` builds the Spring Boot artifact separately from the lightweight Java 17 runtime image. Docker Compose connects the non-root application container to PostgreSQL, waits for database readiness, and exposes health checks for both services.
+
 ## Requirements
 
-- Java 17 or later
-- Docker Desktop or Docker Engine with Docker Compose
-- An Internet connection for live job retrieval
+- Docker Desktop or Docker Engine with Docker Compose for the recommended container workflow
+- Java 17 or later for running the application directly from source
+- An Internet connection for the initial image build and live job retrieval
 
-A global Maven installation is not required because the repository includes the Maven Wrapper. Docker must be running for the PostgreSQL development environment and persistence integration tests.
+A global Maven installation is not required because the repository includes the Maven Wrapper. Java is not required on the host when the complete application is run through Docker Compose.
+
+Docker must be running for the complete stack and for persistence integration tests.
 
 ## Quick Start
 
@@ -97,63 +105,19 @@ git clone https://github.com/saveriobutright/JobRadar.git
 cd JobRadar
 ```
 
-Start PostgreSQL:
+### Run the complete stack with Docker
+
+Build and start JobRadar together with PostgreSQL:
 
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
-Confirm that the database is healthy:
+Wait until both services are healthy:
 
 ```bash
 docker compose ps
 ```
-
-Run the application on Windows:
-
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-
-Run the application on macOS or Linux:
-
-```bash
-./mvnw spring-boot:run
-```
-## Web Dashboard
-
-The application includes a responsive dashboard served directly by Spring Boot:
-
-```text
-http://localhost:8080
-```
-
-The dashboard provides:
-- keyword and location filtering;
-- remote and onsite work-model filtering;
-- newest-first and relevance-first sorting;
-- relevance scores with matched signals;
-- result summaries and one-based pagination;
-- URL-based search state that can be bookmarked or shared;
-- direct links to the original provider listings;
-- responsive layouts for desktop and mobile screens.
-
-The dashboard reads from the persisted PostgreSQL records through the same /api/jobs endpoint documented below. A new database will initially display no opportunities.
-Populate it by running an ingestion from another terminal:
-
-```powershell
-Invoke-RestMethod `
-    -Method Post `
-    -Uri 'http://localhost:8080/api/ingestions/jobs?page=1'
-```
-
-On macOS or Linux:
-
-```bash
-curl -X POST "http://localhost:8080/api/ingestions/jobs?page=1"
-```
-
-Refresh the dashboard after the ingestion completes.
 
 The web dashboard will be available at:
 
@@ -167,22 +131,92 @@ The REST API will be available at:
 http://localhost:8080/api/jobs
 ```
 
-The Compose configuration provides these local development defaults:
+A new database initially contains no opportunities. Populate it from another terminal:
 
-```text
-Database: jobradar
-Username: jobradar
-Password: jobradar
-Port:     5432
+```powershell
+Invoke-RestMethod `
+    -Method Post `
+    -Uri 'http://localhost:8080/api/ingestions/jobs?page=1'
 ```
 
-These values can be overridden through `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. A local `.env` file is ignored by Git.
-
-Stop the application with `Ctrl+C`. To stop PostgreSQL while preserving its data, run:
+On macOS or Linux:
 
 ```bash
-docker compose stop
+curl -X POST "http://localhost:8080/api/ingestions/jobs?page=1"
 ```
+
+Stop and remove the containers while preserving the PostgreSQL volume:
+
+```bash
+docker compose down
+```
+
+To remove the containers and all persisted development data, use `docker compose down --volumes`.
+
+### Configure the stack
+
+The repository provides `.env.example` with every supported Compose setting. To create local overrides on Windows:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+On macOS or Linux:
+
+```bash
+cp .env.example .env
+```
+
+The local `.env` file is ignored by Git. Default database credentials are intended only for local development.
+
+### Run the application from source
+
+Start only PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Run the application on Windows:
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+Run the application on macOS or Linux:
+
+```bash
+./mvnw spring-boot:run
+```
+
+The source-based application connects to PostgreSQL on `localhost:5432` by default. The datasource can be overridden through `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`.
+
+Stop the application with `Ctrl+C`. Stop PostgreSQL while preserving its data with:
+
+```bash
+docker compose stop postgres
+```
+
+## Web Dashboard
+
+The application includes a responsive dashboard served directly by Spring Boot:
+
+```text
+http://localhost:8080
+```
+
+The dashboard provides:
+
+- keyword and location filtering;
+- remote and onsite work-model filtering;
+- newest-first and relevance-first sorting;
+- relevance scores with matched signals;
+- result summaries and one-based pagination;
+- URL-based search state that can be bookmarked or shared;
+- direct links to the original provider listings;
+- responsive layouts for desktop and mobile screens.
+
+The dashboard reads persisted PostgreSQL records through the same `/api/jobs` endpoint documented below.
 
 ## API
 
@@ -470,10 +504,16 @@ The test suite covers:
 
 The tests do not modify the PostgreSQL database created by `compose.yml`. Testcontainers provides a separate disposable database on a random port.
 
+After Maven verification succeeds, GitHub Actions also validates the Compose configuration, builds the application image, starts the complete stack, waits for both health checks, and performs an HTTP smoke test against the dashboard. Container logs are printed automatically if this job fails.
+
 ## Project Structure
 
 ```text
 .
+├── .dockerignore
+├── .env.example
+├── .github/workflows/ci.yml
+├── Dockerfile
 ├── compose.yml
 ├── pom.xml
 └── src
@@ -556,7 +596,7 @@ Please use the public API responsibly and review the provider's terms before ope
 - [x] Persistent search, filtering, and pagination
 - [x] Explainable relevance scoring for data engineering and AI roles
 - [x] Responsive web dashboard
-- [ ] Container image for the application
+- [x] Multi-stage application container and full Compose stack
 
 ## License
 
