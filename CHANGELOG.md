@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Automated multi-platform container publishing to GitHub Container Registry with semantic tags and provenance attestations.
+
 ## [0.1.0] - 2026-09-24
 
 ### Added
