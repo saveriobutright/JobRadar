@@ -604,7 +604,7 @@ Please use the public API responsibly and review the provider's terms before ope
 
 ## Releases
 
-The current stable release is `v0.1.0`.
+The current stable release is `v0.1.1`.
 
 Version history and notable changes are documented in [CHANGELOG.md](CHANGELOG.md). Published versions and downloadable source archives are available through [GitHub Releases](https://github.com/saveriobutright/JobRadar/releases).
 
