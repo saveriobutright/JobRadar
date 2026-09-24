@@ -1,4 +1,32 @@
 services:
+  app:
+    build:
+      context: .
+    image: jobradar:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-jobradar}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-jobradar}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-jobradar}
+      JOBRADAR_INGESTION_SCHEDULE_ENABLED: ${JOBRADAR_INGESTION_SCHEDULE_ENABLED:-false}
+      JOBRADAR_INGESTION_SCHEDULE_PAGE: ${JOBRADAR_INGESTION_SCHEDULE_PAGE:-1}
+      JOBRADAR_INGESTION_SCHEDULE_FIXED_DELAY: ${JOBRADAR_INGESTION_SCHEDULE_FIXED_DELAY:-PT1H}
+      JOBRADAR_INGESTION_SCHEDULE_INITIAL_DELAY: ${JOBRADAR_INGESTION_SCHEDULE_INITIAL_DELAY:-PT30S}
+      JOBRADAR_SCORING_TARGET_ROLES: ${JOBRADAR_SCORING_TARGET_ROLES:-Data Engineer,Analytics Engineer,Machine Learning Engineer,AI Engineer}
+      JOBRADAR_SCORING_SKILLS: ${JOBRADAR_SCORING_SKILLS:-SQL,Python,Java,Spring Boot,PostgreSQL,Docker,Apache Kafka,Apache Spark,Apache Airflow,AWS,Machine Learning}
+      JOBRADAR_SCORING_PREFERRED_JOB_TYPES: ${JOBRADAR_SCORING_PREFERRED_JOB_TYPES:-Full-time}
+      JOBRADAR_SCORING_REMOTE_PREFERRED: ${JOBRADAR_SCORING_REMOTE_PREFERRED:-true}
+    ports:
+      - "${JOBRADAR_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   postgres:
     image: postgres:17-alpine
     environment:
@@ -10,9 +38,7 @@ services:
     volumes:
       - jobradar-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        - CMD-SHELL
-        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
