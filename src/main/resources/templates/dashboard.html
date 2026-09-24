@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+    <meta name="description"
+          content="Discover and rank data engineering and AI opportunities with explainable relevance scores.">
+
+    <title>JobRadar | Data and AI opportunities</title>
+
+    <link rel="stylesheet"
+          href="/css/dashboard.css"
+          th:href="@{/css/dashboard.css}">
+
+    <script defer
+            src="/js/dashboard.js"
+            th:src="@{/js/dashboard.js}">
+    </script>
+</head>
+
+<body>
+<header class="site-header">
+    <a class="brand" href="/" aria-label="JobRadar home">
+        <span class="brand-mark" aria-hidden="true">JR</span>
+
+        <span>
+            <strong>JobRadar</strong>
+            <small>Data &amp; AI opportunity intelligence</small>
+        </span>
+    </a>
+
+    <a class="github-link"
+       href="https://github.com/saveriobutright/JobRadar"
+       target="_blank"
+       rel="noreferrer">
+        View on GitHub
+    </a>
+</header>
+
+<main>
+    <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+            <p class="eyebrow">EXPLAINABLE JOB DISCOVERY</p>
+
+            <h1 id="hero-title">
+                Find opportunities that match your direction.
+            </h1>
+
+            <p class="hero-description">
+                Search persisted job listings and understand why
+                each role matches your data engineering and AI profile.
+            </p>
+        </div>
+
+        <dl class="summary-grid">
+            <div class="summary-card">
+                <dt>Matching jobs</dt>
+                <dd id="total-jobs">—</dd>
+            </div>
+
+            <div class="summary-card">
+                <dt>Top score</dt>
+                <dd id="top-score">—</dd>
+            </div>
+
+            <div class="summary-card">
+                <dt>Remote on page</dt>
+                <dd id="remote-jobs">—</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="search-panel"
+             aria-labelledby="search-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">SEARCH PROFILE</p>
+                <h2 id="search-heading">Refine your radar</h2>
+            </div>
+
+            <button id="clear-filters"
+                    class="text-button"
+                    type="button">
+                Clear filters
+            </button>
+        </div>
+
+        <form id="job-filters">
+            <label>
+                Keywords
+                <input id="query"
+                       name="query"
+                       type="search"
+                       placeholder="Data engineer, Kafka, AI...">
+            </label>
+
+            <label>
+                Location
+                <input id="location"
+                       name="location"
+                       type="search"
+                       placeholder="Berlin, Italy, Remote...">
+            </label>
+
+            <label>
+                Work model
+                <select id="remote" name="remote">
+                    <option value="">All roles</option>
+                    <option value="true">Remote only</option>
+                    <option value="false">Onsite or hybrid</option>
+                </select>
+            </label>
+
+            <label>
+                Sort by
+                <select id="sort" name="sort">
+                    <option value="relevance">
+                        Best match
+                    </option>
+                    <option value="newest">
+                        Newest first
+                    </option>
+                </select>
+            </label>
+
+            <button class="primary-button" type="submit">
+                Search jobs
+            </button>
+        </form>
+    </section>
+
+    <section class="results-section"
+             aria-labelledby="results-heading">
+        <div class="results-heading">
+            <div>
+                <p class="eyebrow">OPPORTUNITIES</p>
+                <h2 id="results-heading">Ranked results</h2>
+            </div>
+
+            <p id="result-summary" aria-live="polite">
+                Loading jobs…
+            </p>
+        </div>
+
+        <div id="loading-state"
+             class="state-message">
+            Loading opportunities…
+        </div>
+
+        <div id="error-state"
+             class="state-message state-error"
+             hidden>
+            <strong>Jobs could not be loaded.</strong>
+            <span>Please try again in a moment.</span>
+        </div>
+
+        <div id="empty-state"
+             class="state-message"
+             hidden>
+            <strong>No opportunities found.</strong>
+            <span>Try removing one or more filters.</span>
+        </div>
+
+        <div id="job-list"
+             class="job-grid"
+             aria-live="polite">
+        </div>
+
+        <nav id="pagination"
+             class="pagination"
+             aria-label="Job result pages"
+             hidden>
+            <button id="previous-page"
+                    class="secondary-button"
+                    type="button">
+                Previous
+            </button>
+
+            <span id="page-indicator">Page 1 of 1</span>
+
+            <button id="next-page"
+                    class="secondary-button"
+                    type="button">
+                Next
+            </button>
+        </nav>
+    </section>
+
+    <noscript>
+        <p class="state-message">
+            JavaScript is required to load and filter job listings.
+        </p>
+    </noscript>
+</main>
+
+<footer class="site-footer">
+    <p>
+        Job data provided by Arbeitnow.
+        Relevance scores are deterministic and explainable.
+    </p>
+</footer>
+
+<template id="job-card-template">
+    <a class="job-card"
+       target="_blank"
+       rel="noreferrer">
+        <header class="job-card-header">
+            <div>
+                <p class="job-company"></p>
+
+                <h3 class="job-title"></h3>
+            </div>
+
+            <div class="score-badge">
+                <strong class="score-value"></strong>
+                <span>match</span>
+            </div>
+        </header>
+
+        <div class="job-metadata">
+            <span class="job-location"></span>
+            <span class="job-remote"></span>
+            <span class="job-types"></span>
+        </div>
+
+        <p class="job-description"></p>
+
+        <div class="match-section">
+            <p>Matched signals</p>
+            <div class="match-list"></div>
+        </div>
+
+        <footer class="job-card-footer">
+            <span class="job-date"></span>
+            <span class="job-source"></span>
+        </footer>
+    </a>
+</template>
+</body>
+</html>

@@ -1,0 +1,719 @@
+:root {
+    color-scheme: dark;
+
+    --background: #07111f;
+    --background-soft: #0b1727;
+    --surface: rgba(16, 29, 47, 0.88);
+    --surface-strong: #122238;
+    --surface-hover: #172b45;
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(94, 234, 212, 0.35);
+
+    --text: #f4f7fb;
+    --text-soft: #b6c2d2;
+    --text-muted: #8291a5;
+
+    --accent: #5eead4;
+    --accent-strong: #2dd4bf;
+    --accent-dark: #0f766e;
+    --violet: #a78bfa;
+    --danger: #fb7185;
+
+    --shadow: 0 24px 70px rgba(0, 0, 0, 0.26);
+    --radius-large: 28px;
+    --radius-medium: 18px;
+    --radius-small: 12px;
+    --content-width: 1240px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-width: 320px;
+    background: var(--background);
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    color: var(--text);
+    background:
+            radial-gradient(
+                    circle at 15% 0%,
+                    rgba(45, 212, 191, 0.14),
+                    transparent 34rem
+            ),
+            radial-gradient(
+                    circle at 90% 12%,
+                    rgba(167, 139, 250, 0.12),
+                    transparent 30rem
+            ),
+            linear-gradient(
+                    180deg,
+                    #081321 0%,
+                    var(--background) 55%,
+                    #050c16 100%
+            );
+    font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+    line-height: 1.5;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button,
+select {
+    cursor: pointer;
+}
+
+a {
+    color: inherit;
+}
+
+.site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: min(
+            calc(100% - 2rem),
+            var(--content-width)
+    );
+    margin: 0 auto;
+    padding: 1.5rem 0;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+}
+
+.brand-mark {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    color: var(--background);
+    background:
+            linear-gradient(
+                    135deg,
+                    var(--accent),
+                    #67e8f9
+            );
+    box-shadow: 0 0 30px rgba(45, 212, 191, 0.22);
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+}
+
+.brand strong,
+.brand small {
+    display: block;
+}
+
+.brand strong {
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+}
+
+.brand small {
+    margin-top: 0.1rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.github-link,
+.text-button {
+    border: 0;
+    color: var(--text-soft);
+    background: transparent;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.github-link {
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+
+.github-link:hover,
+.text-button:hover {
+    color: var(--accent);
+}
+
+main {
+    width: min(
+            calc(100% - 2rem),
+            var(--content-width)
+    );
+    margin: 0 auto;
+}
+
+.hero {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 0.8fr);
+    gap: 3rem;
+    overflow: hidden;
+    padding: clamp(2.5rem, 7vw, 5.5rem);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-large);
+    background:
+            linear-gradient(
+                    135deg,
+                    rgba(18, 34, 56, 0.96),
+                    rgba(9, 22, 38, 0.92)
+            );
+    box-shadow: var(--shadow);
+}
+
+.hero::after {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    right: -7rem;
+    width: 34rem;
+    height: 34rem;
+    border-radius: 50%;
+    background:
+            repeating-radial-gradient(
+                    circle,
+                    rgba(94, 234, 212, 0.16) 0 1px,
+                    transparent 1px 3.7rem
+            );
+    content: "";
+    transform: translateY(-50%);
+}
+
+.eyebrow {
+    margin: 0 0 0.7rem;
+    color: var(--accent);
+    font-size: 0.74rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+}
+
+.hero h1 {
+    max-width: 13ch;
+    margin: 0;
+    font-size: clamp(2.65rem, 6vw, 5.8rem);
+    font-weight: 820;
+    letter-spacing: -0.065em;
+    line-height: 0.97;
+}
+
+.hero-description {
+    max-width: 40rem;
+    margin: 1.6rem 0 0;
+    color: var(--text-soft);
+    font-size: clamp(1rem, 1.8vw, 1.2rem);
+}
+
+.summary-grid {
+    align-self: end;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+}
+
+.summary-card {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-medium);
+    background: rgba(255, 255, 255, 0.035);
+    backdrop-filter: blur(12px);
+}
+
+.summary-card dt {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 750;
+    text-transform: uppercase;
+}
+
+.summary-card dd {
+    margin: 0.35rem 0 0;
+    font-size: clamp(1.4rem, 3vw, 2.15rem);
+    font-weight: 850;
+    letter-spacing: -0.04em;
+}
+
+.search-panel,
+.results-section {
+    margin-top: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-large);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.search-panel {
+    padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.section-heading,
+.results-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.section-heading h2,
+.results-heading h2 {
+    margin: 0;
+    font-size: clamp(1.35rem, 3vw, 2rem);
+    letter-spacing: -0.035em;
+}
+
+#job-filters {
+    display: grid;
+    grid-template-columns:
+        minmax(13rem, 1.6fr)
+        minmax(11rem, 1.25fr)
+        minmax(9rem, 0.9fr)
+        minmax(9rem, 0.9fr)
+        auto;
+    gap: 0.9rem;
+    align-items: end;
+    margin-top: 1.4rem;
+}
+
+label {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    font-weight: 750;
+}
+
+input,
+select {
+    width: 100%;
+    min-height: 3.15rem;
+    padding: 0 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-small);
+    outline: none;
+    color: var(--text);
+    background: rgba(4, 12, 22, 0.72);
+    transition:
+            border-color 160ms ease,
+            box-shadow 160ms ease,
+            background 160ms ease;
+}
+
+input::placeholder {
+    color: #64748b;
+}
+
+input:focus,
+select:focus {
+    border-color: var(--accent);
+    background: #091726;
+    box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.12);
+}
+
+.primary-button,
+.secondary-button {
+    min-height: 3.15rem;
+    padding: 0 1.1rem;
+    border-radius: var(--radius-small);
+    font-weight: 850;
+    transition:
+            transform 160ms ease,
+            background 160ms ease,
+            border-color 160ms ease;
+}
+
+.primary-button {
+    border: 0;
+    color: #04201d;
+    background:
+            linear-gradient(
+                    135deg,
+                    var(--accent),
+                    #67e8f9
+            );
+}
+
+.primary-button:hover,
+.secondary-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.secondary-button {
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: var(--surface-strong);
+}
+
+.secondary-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+}
+
+.results-section {
+    padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+#result-summary {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.job-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.4rem;
+}
+
+.job-card {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 1.35rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-medium);
+    background:
+            linear-gradient(
+                    145deg,
+                    rgba(23, 43, 69, 0.76),
+                    rgba(10, 24, 40, 0.88)
+            );
+    transition:
+            transform 180ms ease,
+            border-color 180ms ease,
+            background 180ms ease;
+    cursor: pointer;
+    color:inherit;
+    text-decoration: none;
+}
+
+.job-title {
+    text-decoration: none;
+}
+
+
+
+.job-card::before {
+    position: absolute;
+    top: 0;
+    left: 1.35rem;
+    width: 4rem;
+    height: 3px;
+    border-radius: 0 0 999px 999px;
+    background:
+            linear-gradient(
+                    90deg,
+                    var(--accent),
+                    var(--violet)
+            );
+    content: "";
+}
+
+.job-card:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-hover);
+    transform: translateY(-3px);
+}
+
+.job-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.job-company {
+    margin: 0 0 0.35rem;
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.job-card h3 {
+    margin: 0;
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    line-height: 1.25;
+}
+
+.job-title {
+    text-decoration: none;
+}
+
+.job-card:hover .job-title {
+    color: var(--accent);
+}
+
+.score-badge {
+    display: grid;
+    width: 4.25rem;
+    min-width: 4.25rem;
+    height: 4.25rem;
+    place-content: center;
+    border: 1px solid rgba(94, 234, 212, 0.28);
+    border-radius: 50%;
+    text-align: center;
+    background:
+            radial-gradient(
+                    circle,
+                    rgba(45, 212, 191, 0.16),
+                    rgba(45, 212, 191, 0.04)
+            );
+}
+
+.score-badge strong,
+.score-badge span {
+    display: block;
+}
+
+.score-badge strong {
+    color: var(--accent);
+    font-size: 1.45rem;
+    line-height: 1;
+}
+
+.score-badge span {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.job-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.job-metadata span,
+.signal-chip {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-soft);
+    background: rgba(255, 255, 255, 0.035);
+    font-size: 0.73rem;
+}
+
+.job-description {
+    display: -webkit-box;
+    overflow: hidden;
+    margin: 1rem 0;
+    color: var(--text-soft);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+}
+
+.match-section {
+    margin-top: auto;
+    padding-top: 0.35rem;
+}
+
+.match-section > p {
+    margin: 0 0 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.match-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.signal-chip {
+    border-color: rgba(167, 139, 250, 0.25);
+    color: #ddd6fe;
+    background: rgba(139, 92, 246, 0.1);
+}
+
+.job-card-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.state-message {
+    display: grid;
+    min-height: 10rem;
+    place-content: center;
+    gap: 0.35rem;
+    margin-top: 1.4rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-medium);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.state-error {
+    border-color: rgba(251, 113, 133, 0.35);
+    color: var(--danger);
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+#page-indicator {
+    min-width: 8rem;
+    color: var(--text-soft);
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.site-footer {
+    width: min(
+            calc(100% - 2rem),
+            var(--content-width)
+    );
+    margin: 1.25rem auto 0;
+    padding: 1.5rem 0 2.5rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+:focus-visible {
+    outline: 3px solid rgba(94, 234, 212, 0.55);
+    outline-offset: 3px;
+}
+
+@media (max-width: 1000px) {
+    .hero {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-grid {
+        max-width: 38rem;
+    }
+
+    #job-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .primary-button {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 760px) {
+    .site-header {
+        align-items: flex-start;
+    }
+
+    .brand small {
+        display: none;
+    }
+
+    .hero {
+        gap: 2rem;
+        padding: 2rem 1.25rem;
+    }
+
+    .hero h1 {
+        font-size: clamp(2.5rem, 14vw, 4.5rem);
+    }
+
+    .summary-grid,
+    .job-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .section-heading,
+    .results-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 560px) {
+    .github-link {
+        padding: 0.55rem 0.7rem;
+        font-size: 0.75rem;
+    }
+
+    #job-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .primary-button {
+        grid-column: auto;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .job-card-header {
+        align-items: flex-start;
+    }
+
+    .job-card-footer {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+    }
+}

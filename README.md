@@ -1,6 +1,6 @@
 # JobRadar
 
-An extensible job aggregation backend for data engineering and AI opportunities.
+An extensible job intelligence platform for discovering and ranking data engineering and AI opportunities.
 
 ![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?logo=springboot&logoColor=white)
@@ -10,7 +10,9 @@ An extensible job aggregation backend for data engineering and AI opportunities.
 [![CI](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml/badge.svg)](https://github.com/saveriobutright/JobRadar/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> JobRadar is under active development. It currently provides a tested pipeline from external job data to normalized PostgreSQL records with configurable, explainable relevance scoring.
+> JobRadar is under active development. It provides a tested pipeline from external job data to normalized PostgreSQL records, explainable relevance scoring, a searchable REST API, and a responsive web dashboard.
+
+![JobRadar web dashboard](docs/images/dashboard.png)
 
 ## Features
 
@@ -33,6 +35,9 @@ An extensible job aggregation backend for data engineering and AI opportunities.
 - Filters stored jobs by title or company text, location, and remote status.
 - Returns deterministic one-based pagination with total result metadata.
 - Produces standard Problem Detail responses for invalid requests.
+- Provides a responsive web dashboard for exploring persisted opportunities.
+- Supports dashboard filtering, relevance sorting, pagination, and URL-based search state.
+- Opens each result directly on the original provider website.
 - Uses Testcontainers to verify persistence against a real PostgreSQL instance.
 
 ## Architecture
@@ -57,8 +62,12 @@ flowchart LR
     N["GET /api/jobs"] --> O[JobController]
     O --> P[StoredJobSearchService]
     P --> M
-
     M --> Q[(PostgreSQL)]
+
+    R[Browser] --> S["GET /"]
+    S --> T[DashboardController]
+    T --> U[Thymeleaf dashboard]
+    U -->|JavaScript search requests| N
 ```
 
 Provider-specific DTOs remain inside their integration package. The rest of the application works with the normalized `JobPosting` model and the common `JobSource` contract.
@@ -68,6 +77,8 @@ Provider-specific DTOs remain inside their integration package. The rest of the 
 Manual requests and the opt-in scheduler both delegate to `JobIngestionService`. Each normalized job is evaluated by `JobRelevanceScorer` against the configured profile before `JobPostingStore` persists the listing and its score atomically.
 
 `StoredJobSearchService` performs consistent read-only searches over PostgreSQL. `JobPostingStore` owns database-specific SQL, deterministic ordering, array conversion, filtering, and pagination. Flyway keeps the schema reproducible and versioned.
+
+`DashboardController` serves the Thymeleaf page at the application root. The dashboard uses lightweight browser JavaScript to query the existing search API, render result cards, preserve filter state in the URL, and link each opportunity to its original provider page.
 
 ## Requirements
 
@@ -109,11 +120,51 @@ Run the application on macOS or Linux:
 ```bash
 ./mvnw spring-boot:run
 ```
+## Web Dashboard
 
-The API will be available at:
+The application includes a responsive dashboard served directly by Spring Boot:
 
 ```text
 http://localhost:8080
+```
+
+The dashboard provides:
+- keyword and location filtering;
+- remote and onsite work-model filtering;
+- newest-first and relevance-first sorting;
+- relevance scores with matched signals;
+- result summaries and one-based pagination;
+- URL-based search state that can be bookmarked or shared;
+- direct links to the original provider listings;
+- responsive layouts for desktop and mobile screens.
+
+The dashboard reads from the persisted PostgreSQL records through the same /api/jobs endpoint documented below. A new database will initially display no opportunities.
+Populate it by running an ingestion from another terminal:
+
+```powershell
+Invoke-RestMethod `
+    -Method Post `
+    -Uri 'http://localhost:8080/api/ingestions/jobs?page=1'
+```
+
+On macOS or Linux:
+
+```bash
+curl -X POST "http://localhost:8080/api/ingestions/jobs?page=1"
+```
+
+Refresh the dashboard after the ingestion completes.
+
+The web dashboard will be available at:
+
+```text
+http://localhost:8080
+```
+
+The REST API will be available at:
+
+```text
+http://localhost:8080/api/jobs
 ```
 
 The Compose configuration provides these local development defaults:
@@ -414,6 +465,7 @@ The test suite covers:
 - stored filtering, pagination, and row mapping;
 - pagination metadata calculation;
 - REST success and Problem Detail error responses;
+- dashboard route resolution;
 - Flyway migrations and Spring application context startup.
 
 The tests do not modify the PostgreSQL database created by `compose.yml`. Testcontainers provides a separate disposable database on a random port.
@@ -429,6 +481,8 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
     │   ├── java/io/github/saveriobutright/jobradar
     │   │   ├── api
     │   │   │   └── ApiExceptionHandler.java
+    │   │   ├── dashboard
+    │   │   │   └── DashboardController.java
     │   │   ├── jobs
     │   │   │   ├── persistence
     │   │   │   │   └── JobPostingStore.java
@@ -464,11 +518,18 @@ The tests do not modify the PostgreSQL database created by `compose.yml`. Testco
     │   │   │   └── JobSource.java
     │   │   └── JobRadarApplication.java
     │   └── resources
-    │       ├── application.properties
-    │       └── db/migration
-    │           ├── V1__create_job_postings.sql
-    │           ├── V2__add_job_content.sql
-    │           └── V3__add_job_relevance.sql
+    │       ├── db/migration
+    │       │   ├── V1__create_job_postings.sql
+    │       │   ├── V2__add_job_content.sql
+    │       │   └── V3__add_job_relevance.sql
+    │       ├── static
+    │       │   ├── css
+    │       │   │   └── dashboard.css
+    │       │   └── js
+    │       │       └── dashboard.js
+    │       ├── templates
+    │       │   └── dashboard.html
+    │       └── application.properties
     └── test
         └── java/io/github/saveriobutright/jobradar
             └── TestcontainersConfiguration.java
@@ -494,7 +555,7 @@ Please use the public API responsibly and review the provider's terms before ope
 - [x] Configurable scheduled ingestion pipeline
 - [x] Persistent search, filtering, and pagination
 - [x] Explainable relevance scoring for data engineering and AI roles
-- [ ] Web dashboard
+- [x] Responsive web dashboard
 - [ ] Container image for the application
 
 ## License
