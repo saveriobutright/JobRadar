@@ -513,7 +513,9 @@ After Maven verification succeeds, GitHub Actions also validates the Compose con
 .
 ├── .dockerignore
 ├── .env.example
-├── .github/workflows/ci.yml
+├── .github/workflows
+│   ├── ci.yml
+│   └── publish-container.yml
 ├── CHANGELOG.md
 ├── Dockerfile
 ├── compose.yml
